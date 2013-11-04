@@ -25,7 +25,7 @@
  * Description:  constructor
  *--------------------------------------------------------------------------------------
  */
-Snake::Snake() {
+Snake::Snake( ) {
 
     // initialize the snake
     last_dir = dir = dir_down;
@@ -46,11 +46,6 @@ Snake::Snake() {
     box( window, 0, 0 );
     //wrefresh( window );
     
-    // initialize settings
-    settings.snake_color = DEFAULT_SNAKE_COLOR;
-    settings.food_color = DEFAULT_FOOD_COLOR;
-    settings.super_food_color = DEFAULT_SUPER_FOOD_COLOR;
-
     // initialize the board
     board = new int*[max_x] ;
     for( int x = 0; x <= max_x; ++x ) {
@@ -134,20 +129,20 @@ void Snake::drop_food() {
 
 void Snake::drop_food( int x, int y ) {
 
-    wattrset( window, COLOR_PAIR(settings.food_color) );
-    board[x][y] = food;
-    mvwaddch( window, y, x, ACS_DIAMOND );
+    wattrset( window, COLOR_PAIR(settings.color.food) );
+    board[x][y] = dir_food;
+    mvwaddch( window, y, x, settings.food_mark );
 }
 
 int Snake::tick() {
     
     // handle collisions
     switch( board[head_x][head_y] ) {
-    case food:
+    case dir_food:
         ++max_length;
         drop_food();
         break;
-    case super_food:
+    case dir_super_food:
         max_length += 5;
         drop_food();
         break;
@@ -165,7 +160,7 @@ int Snake::tick() {
     board[head_x][head_y] = dir;
 
     // change to snake body color
-    wattrset( window, COLOR_PAIR(settings.snake_color) );
+    wattrset( window, COLOR_PAIR(settings.color.snake) );
 
     // draw the head
     switch( dir ) {
@@ -175,7 +170,7 @@ int Snake::tick() {
         } else {
             --head_y;
         }
-        mvwaddch( window, head_y, head_x, ACS_UARROW );
+        mvwaddch( window, head_y, head_x, settings.snake_head_mark.up );
         break;
     case dir_down:
         if( head_y >= max_y ) {
@@ -183,7 +178,7 @@ int Snake::tick() {
         } else {
             ++head_y;
         }
-        mvwaddch( window, head_y, head_x, ACS_DARROW );
+        mvwaddch( window, head_y, head_x, settings.snake_head_mark.down );
         break;
     case dir_left:
         if( head_x <= 1 ) {
@@ -191,7 +186,7 @@ int Snake::tick() {
         } else {
             --head_x;
         }
-        mvwaddch( window, head_y, head_x, ACS_LARROW );
+        mvwaddch( window, head_y, head_x, settings.snake_head_mark.left );
         break;
     case dir_right:
         if( head_x >= max_x ) {
@@ -199,7 +194,7 @@ int Snake::tick() {
         } else {
             ++head_x;
         }
-        mvwaddch( window, head_y, head_x, ACS_RARROW );
+        mvwaddch( window, head_y, head_x, settings.snake_head_mark.right );
         break;
     }
 
@@ -209,13 +204,13 @@ int Snake::tick() {
     case dir_up:
         switch( last_dir ) {
         case dir_left:
-            mvwaddch( window, neck_y, neck_x, ACS_LLCORNER );
+            mvwaddch( window, neck_y, neck_x, settings.snake_body_mark.ll );
             break;
         case dir_right:
-            mvwaddch( window, neck_y, neck_x, ACS_LRCORNER );
+            mvwaddch( window, neck_y, neck_x, settings.snake_body_mark.lr );
             break;
         default:
-            mvwaddch( window, neck_y, neck_x, ACS_VLINE );
+            mvwaddch( window, neck_y, neck_x, settings.snake_body_mark.up );
         }
         if( neck_y <= 1 ) {
             neck_y = max_y;
@@ -226,13 +221,13 @@ int Snake::tick() {
     case dir_down:
         switch( last_dir ) {
         case dir_left:
-            mvwaddch( window, neck_y, neck_x, ACS_ULCORNER );
+            mvwaddch( window, neck_y, neck_x, settings.snake_body_mark.ul );
             break;
         case dir_right:
-            mvwaddch( window, neck_y, neck_x, ACS_URCORNER );
+            mvwaddch( window, neck_y, neck_x, settings.snake_body_mark.ur );
             break;
         default:
-            mvwaddch( window, neck_y, neck_x, ACS_VLINE );
+            mvwaddch( window, neck_y, neck_x, settings.snake_body_mark.down );
         }
         if( neck_y >= max_y ) {
             neck_y = 1;
@@ -243,13 +238,13 @@ int Snake::tick() {
     case dir_left:
         switch( last_dir ) {
         case dir_up:
-            mvwaddch( window, neck_y, neck_x, ACS_URCORNER );
+            mvwaddch( window, neck_y, neck_x, settings.snake_body_mark.ur );
             break;
         case dir_down:
-            mvwaddch( window, neck_y, neck_x, ACS_LRCORNER );
+            mvwaddch( window, neck_y, neck_x, settings.snake_body_mark.lr );
             break;
         default:
-            mvwaddch( window, neck_y, neck_x, ACS_HLINE );
+            mvwaddch( window, neck_y, neck_x, settings.snake_body_mark.left );
         }
         if( neck_x <= 1 ) {
             neck_x = max_x;
@@ -260,13 +255,13 @@ int Snake::tick() {
     case dir_right:
         switch( last_dir ) {
         case dir_up:
-            mvwaddch( window, neck_y, neck_x, ACS_ULCORNER );
+            mvwaddch( window, neck_y, neck_x, settings.snake_body_mark.ul );
             break;
         case dir_down:
-            mvwaddch( window, neck_y, neck_x, ACS_LLCORNER );
+            mvwaddch( window, neck_y, neck_x, settings.snake_body_mark.ll );
             break;
         default:
-            mvwaddch( window, neck_y, neck_x, ACS_HLINE );
+            mvwaddch( window, neck_y, neck_x, settings.snake_body_mark.right );
         }
         if( neck_x >= max_x ) {
             neck_x = 1;
@@ -385,21 +380,6 @@ void Controls::right() {
     return ;
 }		/* -----  end of method Controls::right  ----- */
 
-char *main_menu_options[][2] = {
-    {"Resume", "Continue playing the game" },
-    {"Options", "Edit the game options" },
-    {"Save", "Save this game for future play" },
-    {"Quit", "Leave the game" },
-    {NULL, NULL}
-};
-
-char *options_menu_options[][2] = {
-    { "Speed", NULL },
-    { "Food Rate", NULL },
-    { "Back", NULL },
-    { NULL, NULL }
-};
-
 /*
  *--------------------------------------------------------------------------------------
  *       Class:  Menu
@@ -511,12 +491,40 @@ void Game::initialize () {
     if( has_colors() ) {
         start_color();
 
-        init_pair( SNAKE_COLOR, COLOR_RED, COLOR_BLACK );
+        init_pair( 1, COLOR_RED, COLOR_BLACK );
         init_pair( 2, COLOR_GREEN, COLOR_BLACK );
         init_pair( 3, COLOR_YELLOW, COLOR_BLACK );
-        init_pair( FOOD_COLOR, COLOR_BLUE, COLOR_BLACK );
+        init_pair( 4, COLOR_BLUE, COLOR_BLACK );
         init_pair( 5, COLOR_WHITE, COLOR_BLACK );
     }
+
+    // load default settings
+    
+    settings.color.food         = 4;
+    settings.color.snake        = 1;
+    settings.color.super_food   = 3;
+
+    settings.food_mark = ACS_DIAMOND;
+
+    settings.snake_body_mark.ur     = ACS_URCORNER;
+    settings.snake_body_mark.lr     = ACS_LRCORNER;
+    settings.snake_body_mark.ul     = ACS_ULCORNER;
+    settings.snake_body_mark.ll     = ACS_LLCORNER;
+    settings.snake_body_mark.up     = ACS_VLINE;
+    settings.snake_body_mark.down   = ACS_VLINE;
+    settings.snake_body_mark.left   = ACS_HLINE;
+    settings.snake_body_mark.right  = ACS_HLINE;
+
+    settings.snake_head_mark.up     = ACS_UARROW;
+    settings.snake_head_mark.down   = ACS_DARROW;
+    settings.snake_head_mark.left   = ACS_LARROW;
+    settings.snake_head_mark.right  = ACS_RARROW;
+
+    settings.commands.up            = KEY_UP;
+    settings.commands.down          = KEY_DOWN;
+    settings.commands.left          = KEY_LEFT;
+    settings.commands.right         = KEY_RIGHT;
+    settings.commands.toggle_menu   = KEY_BACKSPACE;
 
     snake    = new Snake();
     controls = new Controls( snake );

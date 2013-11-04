@@ -35,45 +35,62 @@ enum direction {
     dir_down,
     dir_left,
     dir_right,
-    food,
-    super_food
+    dir_food,
+    dir_super_food
 };
 
 struct Settings {
     struct {
-        int snake_color;
-        int food_color;
-        int super_food_color;
+        int snake;
+        int food;
+        int super_food;
     } color;
 
     int food_mark;
 
     struct {
-        int up;
-        int down;
-        int right;
-        int left;
         int ur;
         int lr;
         int ul;
         int ll;
+        int up;
+        int down;
+        int left;
+        int right;
     } snake_body_mark;
 
     struct {
         int up;
         int down;
-        int right;
         int left;
+        int right;
     } snake_head_mark;
 
     struct {
-        int down;
         int up;
-        int right;
+        int down;
         int left;
+        int right;
         int toggle_menu;
     } commands;
-}
+};
+
+Settings settings;
+
+char *main_menu_options[][2] = {
+    {"Resume", "Continue playing the game" },
+    {"Options", "Edit the game options" },
+    {"Save", "Save this game for future play" },
+    {"Quit", "Leave the game" },
+    {NULL, NULL}
+};
+
+char *options_menu_options[][2] = {
+    { "Speed", NULL },
+    { "Food Rate", NULL },
+    { "Back", NULL },
+    { NULL, NULL }
+};
 
 /*
  * =====================================================================================
@@ -117,7 +134,7 @@ class Snake
 
         int **board;
 
-        Settings *settings; 
+        //Settings *settings; 
     
         int window_x, window_y;
         int window_width, window_height;
