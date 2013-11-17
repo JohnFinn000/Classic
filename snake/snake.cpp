@@ -16,6 +16,7 @@
  * =====================================================================================
  */
 #include <stdlib.h>
+#include <string.h>
 #include "snake.h"
 
 /*
@@ -36,9 +37,9 @@ Snake::Snake( ) {
     max_length = 3;
 
     // initialize window attributes
-    window_x = 10;
-    window_y = 10;
-    set_size( 30, 30 );
+    window_x = 5;
+    window_y = 5;
+    set_size( settings.board_size.x, settings.board_size.y );
     
     window = newwin( window_width, window_height, window_x, window_y );
     panel = new_panel( window );
@@ -47,7 +48,7 @@ Snake::Snake( ) {
     //wrefresh( window );
     
     // initialize the board
-    board = new int*[max_x] ;
+    board = new int*[max_x];
     for( int x = 0; x <= max_x; ++x ) {
         board[x] = new int[max_y];
     }
@@ -58,10 +59,9 @@ Snake::Snake( ) {
         }
     }
 
-    // initialize random
-    srand( 1 );
+    srand( settings.seed );
 
-    for( int i = 0; i < 10; ++i ) {
+    for( int i = 0; i < settings.num_food; ++i ) {
         drop_food();
     }
 
@@ -80,9 +80,9 @@ void Snake::set_size( int width, int height ) {
     window_width = width;
     window_height = height;
 
-    max_x = window_width - 1;
-    max_y = window_height - 1;
-    return ;
+    max_x = window_width - 2;
+    max_y = window_height - 2;
+    return;
 }		/* -----  end of method Snake::set_size  ----- */
 
 
@@ -120,15 +120,17 @@ void Snake::drop_food() {
     int x;
     int y;
     do {
-        x = rand() % max_x;
-        y = rand() % max_y;
+        x = (rand() % max_x) + 1;
+        y = (rand() % max_y) + 1;
     } while( board[x][y] != -1 );
 
     drop_food( x, y );
 }
 
 void Snake::drop_food( int x, int y ) {
-
+    if( x <= 0 || y <= 0 || x > max_x || y > max_y ) {
+        return;
+    }
     wattrset( window, COLOR_PAIR(settings.color.food) );
     board[x][y] = dir_food;
     mvwaddch( window, y, x, settings.food_mark );
@@ -335,7 +337,7 @@ int Controls::get_input( int input_char ) {
     switch( input_char ) {
     case KEY_BACKSPACE:
     case KEY_ENTER:
-        return OPEN_MENU;
+        return TOGGLE_MAIN_MENU;
         break;
     case KEY_UP:
         up();
@@ -399,12 +401,14 @@ Menu::Menu() {
     // create menu
     menu = new_menu( items );
     // create window
-    window = newwin( 20, 20, 4, 4 );
+    window = newwin( 8, 50, 4, 4 );
     box( window, 0, 0 );
     set_menu_win( menu, window );
-    set_menu_sub( menu, derwin( window, 18,18, 2,1 ) );
+    set_menu_sub( menu, derwin( window, 6,48, 2,1 ) );
     set_menu_mark( menu, " * " );
     post_menu( menu );
+
+    // create panel
     panel = new_panel( window );
     hide_panel( panel );
 }  /* -----  end of method Menu::Menu  (constructor)  ----- */
@@ -412,7 +416,6 @@ Menu::Menu() {
 Menu::~Menu() {
     unpost_menu( menu );
     free_menu( menu );
-
 }
 
 int Menu::get_input( int input_char ) {
@@ -420,7 +423,7 @@ int Menu::get_input( int input_char ) {
     switch ( input_char ) {
         case KEY_BACKSPACE:
         case KEY_ENTER:
-            return OPEN_MENU;
+            return TOGGLE_MAIN_MENU;
             break;
         case KEY_DOWN:	
             menu_driver( menu, REQ_DOWN_ITEM );
@@ -428,6 +431,36 @@ int Menu::get_input( int input_char ) {
         case KEY_UP:	
             menu_driver( menu, REQ_UP_ITEM );
             break;
+        case KEY_LEFT:
+            {
+                ITEM *current;
+                current = current_item( menu );
+                const char *name = item_name( current );
+                int i;
+                for( i = 0; main_menu_options[i][0] != NULL; ++i ) {
+                    if( strcmp( name, main_menu_options[i][0] ) == 0 ) {
+                        break;
+                    }
+                }
+                pos_menu_cursor( menu );
+                if( main_menu_options[i][0] == NULL ) {
+                    printf("null");
+                    break;
+                }
+                switch( i ) {
+                    case 0: //Resume
+                        return TOGGLE_MAIN_MENU;
+                    case 1: //Options
+                        return TOGGLE_MAIN_MENU; // open options menu
+                    case 2: //Save
+                        return 0; // save the results
+                    case 3: //Quit
+                        return EXIT;
+                        break;
+                    default:
+                        break;
+                }
+            }
         default:	
             break;
     }				/* -----  end switch  ----- */
@@ -487,6 +520,7 @@ void Game::initialize () {
     cbreak();
     halfdelay(2);
     noecho();
+    curs_set( 0 );
 
     if( has_colors() ) {
         start_color();
@@ -500,31 +534,72 @@ void Game::initialize () {
 
     // load default settings
     
-    settings.color.food         = 4;
-    settings.color.snake        = 1;
-    settings.color.super_food   = 3;
+    Settings default_settings;
 
-    settings.food_mark = ACS_DIAMOND;
+    default_settings.color.food             = 4;
+    default_settings.color.snake            = 1;
+    default_settings.color.super_food       = 3;
 
-    settings.snake_body_mark.ur     = ACS_URCORNER;
-    settings.snake_body_mark.lr     = ACS_LRCORNER;
-    settings.snake_body_mark.ul     = ACS_ULCORNER;
-    settings.snake_body_mark.ll     = ACS_LLCORNER;
-    settings.snake_body_mark.up     = ACS_VLINE;
-    settings.snake_body_mark.down   = ACS_VLINE;
-    settings.snake_body_mark.left   = ACS_HLINE;
-    settings.snake_body_mark.right  = ACS_HLINE;
+    default_settings.food_mark              = ACS_DIAMOND;
+    default_settings.num_food               = 20;
+    default_settings.seed                   = 1;
 
-    settings.snake_head_mark.up     = ACS_UARROW;
-    settings.snake_head_mark.down   = ACS_DARROW;
-    settings.snake_head_mark.left   = ACS_LARROW;
-    settings.snake_head_mark.right  = ACS_RARROW;
+    default_settings.snake_body_mark.ur     = ACS_URCORNER;
+    default_settings.snake_body_mark.lr     = ACS_LRCORNER;
+    default_settings.snake_body_mark.ul     = ACS_ULCORNER;
+    default_settings.snake_body_mark.ll     = ACS_LLCORNER;
+    default_settings.snake_body_mark.up     = ACS_VLINE;
+    default_settings.snake_body_mark.down   = ACS_VLINE;
+    default_settings.snake_body_mark.left   = ACS_HLINE;
+    default_settings.snake_body_mark.right  = ACS_HLINE;
 
-    settings.commands.up            = KEY_UP;
-    settings.commands.down          = KEY_DOWN;
-    settings.commands.left          = KEY_LEFT;
-    settings.commands.right         = KEY_RIGHT;
-    settings.commands.toggle_menu   = KEY_BACKSPACE;
+    default_settings.snake_head_mark.up     = ACS_UARROW;
+    default_settings.snake_head_mark.down   = ACS_DARROW;
+    default_settings.snake_head_mark.left   = ACS_LARROW;
+    default_settings.snake_head_mark.right  = ACS_RARROW;
+
+    default_settings.commands.up            = KEY_UP;
+    default_settings.commands.down          = KEY_DOWN;
+    default_settings.commands.left          = KEY_LEFT;
+    default_settings.commands.right         = KEY_RIGHT;
+    default_settings.commands.toggle_menu   = KEY_BACKSPACE;
+
+    default_settings.board_size.x           = 50;
+    default_settings.board_size.y           = 50;
+
+    // set the correct settings for everything
+    settings.color.food                     = default_settings.color.food;
+    settings.color.snake                    = default_settings.color.snake;
+    settings.color.super_food               = default_settings.color.super_food;
+
+    settings.food_mark                      = default_settings.food_mark;
+    settings.num_food                       = default_settings.num_food;
+    settings.seed                           = default_settings.seed;
+
+    // the characters that make up the body
+    settings.snake_body_mark.ur             = default_settings.snake_body_mark.ur;
+    settings.snake_body_mark.lr             = default_settings.snake_body_mark.lr;
+    settings.snake_body_mark.ul             = default_settings.snake_body_mark.ul;
+    settings.snake_body_mark.ll             = default_settings.snake_body_mark.ll;
+    settings.snake_body_mark.up             = default_settings.snake_body_mark.up;
+    settings.snake_body_mark.down           = default_settings.snake_body_mark.down;
+    settings.snake_body_mark.left           = default_settings.snake_body_mark.left;
+    settings.snake_body_mark.right          = default_settings.snake_body_mark.right;
+
+    settings.snake_head_mark.up             = default_settings.snake_head_mark.up;
+    settings.snake_head_mark.down           = default_settings.snake_head_mark.down;
+    settings.snake_head_mark.left           = default_settings.snake_head_mark.left;
+    settings.snake_head_mark.right          = default_settings.snake_head_mark.right;
+
+    // key commands
+    settings.commands.up                    = default_settings.commands.up;
+    settings.commands.down                  = default_settings.commands.down;
+    settings.commands.left                  = default_settings.commands.left;
+    settings.commands.right                 = default_settings.commands.right;
+    settings.commands.toggle_menu           = default_settings.commands.toggle_menu;
+
+    settings.board_size.x                   = default_settings.board_size.x;
+    settings.board_size.y                   = default_settings.board_size.y;
 
     snake    = new Snake();
     controls = new Controls( snake );
@@ -561,7 +636,7 @@ void Game::run() {
         }
 
         switch( results ) {
-            case OPEN_MENU:
+            case TOGGLE_MAIN_MENU:
                 menu->toggle();
                 if( current_mode == state_play ) {
                     current_mode = state_menu;
@@ -569,6 +644,8 @@ void Game::run() {
                     current_mode = state_play;
                 }
                 break;
+            case EXIT:
+                return;
             default:
                 break;
         }

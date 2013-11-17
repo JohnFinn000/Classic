@@ -23,12 +23,10 @@
 #include <form.h>
 
 #define DEFAULT 0
-#define OPEN_MENU 1
+#define TOGGLE_MAIN_MENU 1
 #define GAME_OVER 2
-
-#define DEFAULT_SNAKE_COLOR 1
-#define DEFAULT_FOOD_COLOR 2
-#define DEFAULT_SUPER_FOOD_COLOR 2
+#define TOGGLE_OPTIONS_MENU 3
+#define EXIT 4
 
 enum direction {
     dir_up,
@@ -47,6 +45,8 @@ struct Settings {
     } color;
 
     int food_mark;
+    int num_food;
+    int seed;
 
     struct {
         int ur;
@@ -73,7 +73,104 @@ struct Settings {
         int right;
         int toggle_menu;
     } commands;
+
+    struct {
+        int x;
+        int y;
+    } board_size;
 };
+
+
+/*
+class Config {
+    static char names[] = {
+        "super_food_color".
+
+        "seed".
+
+        "food.color".
+        "food.num".
+        "food.mark".
+
+        "snake.body_mark.ur".
+        "snake.body_mark.lr".
+        "snake.body_mark.ul".
+        "snake.body_mark.ll".
+        "snake.body_mark.up".
+        "snake.body_mark.down".
+        "snake.body_mark.left".
+        "snake.body_mark.right".
+        "snake.head_mark.up".
+        "snake.head_mark.down".
+        "snake.head_mark.left".
+        "snake.head_mark.right".
+
+        "snake.color".
+
+        "commands.up";
+        "commands.down";
+        "commands.left";
+        "commands.right";
+        "commands.toggle_menu";
+
+        "board.size.x";
+        "board.size.y";
+    }
+    union Settings {
+        int index[];
+        struct {
+            int super_food_color;
+
+            int seed;
+
+            struct {
+                int color;
+                int num;
+                int mark;
+                int score;
+                int nutrition;
+            } food;
+
+            struct {
+                struct {
+                    int ur;
+                    int lr;
+                    int ul;
+                    int ll;
+                    int up;
+                    int down;
+                    int left;
+                    int right;
+                } body_mark;
+
+                struct {
+                    int up;
+                    int down;
+                    int left;
+                    int right;
+                } head_mark;
+
+                int color
+            } snake;
+
+            struct {
+                int up;
+                int down;
+                int left;
+                int right;
+                int toggle_menu;
+            } commands;
+
+            struct {
+                struct {
+                    int x;
+                    int y;
+                } size;
+            } board;
+        }
+    }
+};
+*/
 
 Settings settings;
 
@@ -90,6 +187,12 @@ char *options_menu_options[][2] = {
     { "Food Rate", NULL },
     { "Back", NULL },
     { NULL, NULL }
+};
+
+char *game_over_menu_options[][2] = {
+    {"Restart", "Play again" },
+    {"Quit", "Leave the game" },
+    {NULL, NULL}
 };
 
 /*
@@ -133,6 +236,9 @@ class Snake
         int max_length;
 
         int **board;
+
+        int score;
+        // timer
 
         //Settings *settings; 
     
