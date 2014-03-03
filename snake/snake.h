@@ -17,6 +17,9 @@
  */
 
 #include <curses.h>
+#include <cursesw.h>
+#include <cursesp.h>
+#include <cursesm.h>
 #include <signal.h>
 #include <panel.h>
 #include <menu.h>
@@ -38,33 +41,37 @@ enum direction {
 };
 
 struct Settings {
-    struct {
-        int snake;
-        int food;
-        int super_food;
-    } color;
-
-    int food_mark;
-    int num_food;
     int seed;
 
     struct {
-        int ur;
-        int lr;
-        int ul;
-        int ll;
-        int up;
-        int down;
-        int left;
-        int right;
-    } snake_body_mark;
+        int color;
+        int mark;
+        int points;
+        int ratio;
+    } food[5];
+
+    float food_rarity;
 
     struct {
-        int up;
-        int down;
-        int left;
-        int right;
-    } snake_head_mark;
+        int color;
+        struct {
+            int ur;
+            int lr;
+            int ul;
+            int ll;
+            int up;
+            int down;
+            int left;
+            int right;
+        } body_mark;
+
+        struct {
+            int up;
+            int down;
+            int left;
+            int right;
+        } head_mark;
+    } snake;
 
     struct {
         int up;
@@ -80,120 +87,8 @@ struct Settings {
     } board_size;
 };
 
-
-/*
-class Config {
-    static char names[] = {
-        "super_food_color".
-
-        "seed".
-
-        "food.color".
-        "food.num".
-        "food.mark".
-
-        "snake.body_mark.ur".
-        "snake.body_mark.lr".
-        "snake.body_mark.ul".
-        "snake.body_mark.ll".
-        "snake.body_mark.up".
-        "snake.body_mark.down".
-        "snake.body_mark.left".
-        "snake.body_mark.right".
-        "snake.head_mark.up".
-        "snake.head_mark.down".
-        "snake.head_mark.left".
-        "snake.head_mark.right".
-
-        "snake.color".
-
-        "commands.up";
-        "commands.down";
-        "commands.left";
-        "commands.right";
-        "commands.toggle_menu";
-
-        "board.size.x";
-        "board.size.y";
-    }
-    union Settings {
-        int index[];
-        struct {
-            int super_food_color;
-
-            int seed;
-
-            struct {
-                int color;
-                int num;
-                int mark;
-                int score;
-                int nutrition;
-            } food;
-
-            struct {
-                struct {
-                    int ur;
-                    int lr;
-                    int ul;
-                    int ll;
-                    int up;
-                    int down;
-                    int left;
-                    int right;
-                } body_mark;
-
-                struct {
-                    int up;
-                    int down;
-                    int left;
-                    int right;
-                } head_mark;
-
-                int color
-            } snake;
-
-            struct {
-                int up;
-                int down;
-                int left;
-                int right;
-                int toggle_menu;
-            } commands;
-
-            struct {
-                struct {
-                    int x;
-                    int y;
-                } size;
-            } board;
-        }
-    }
-};
-*/
-
 Settings settings;
 
-char *main_menu_options[][2] = {
-    {"Resume", "Continue playing the game" },
-    {"Options", "Edit the game options" },
-    {"Save", "Save this game for future play" },
-    {"Quit", "Leave the game" },
-    {NULL, NULL}
-};
-
-char *options_menu_options[][2] = {
-    { "Speed", NULL },
-    { "Food Rate", NULL },
-    { "Back", NULL },
-    { NULL, NULL }
-};
-
-char *game_over_menu_options[][2] = {
-    {"Restart", "Play again" },
-    {"Quit", "Leave the game" },
-    {NULL, NULL}
-};
 
 /*
  * =====================================================================================
@@ -201,19 +96,17 @@ char *game_over_menu_options[][2] = {
  *  Description:  The implementation for the game of snake
  * =====================================================================================
  */
-class Snake
-{
+class Snake : public NCursesPanel {
     public:
         /* ====================  LIFECYCLE     ======================================= */
         Snake();                             /* constructor */
+        Snake( int nlines, int ncols, int begin_y, int begin_x );
+        ~Snake() { }
 
         /* ====================  ACCESSORS     ======================================= */
 
         /* ====================  MUTATORS      ======================================= */
         void change_direction( direction dir );
-        void drop_food();
-        void drop_food( int x, int y );
-        void set_size( int x, int y );
         int tick();
 
         /* ====================  OPERATORS     ======================================= */
@@ -223,6 +116,9 @@ class Snake
 
     private:
         /* ====================  DATA MEMBERS  ======================================= */
+        void drop_food();
+        void drop_food( int x, int y );
+        void set_size( int x, int y );
 
         direction dir;
         direction last_dir;
@@ -241,11 +137,6 @@ class Snake
         // timer
 
         //Settings *settings; 
-    
-        int window_x, window_y;
-        int window_width, window_height;
-        WINDOW *window;
-        PANEL  *panel;
 
 }; /* -----  end of class Snake  ----- */
 
@@ -265,13 +156,6 @@ class Controls
         /* ====================  ACCESSORS     ======================================= */
         int get_input( int input_char );
 
-        /* ====================  MUTATORS      ======================================= */
-
-        /* ====================  OPERATORS     ======================================= */
-
-    protected:
-        /* ====================  DATA MEMBERS  ======================================= */
-
     private:
         /* ====================  DATA MEMBERS  ======================================= */
         Snake *snake;
@@ -286,36 +170,45 @@ class Controls
 
 /*
  * =====================================================================================
- *        Class:  Menu
+ *        Class:  Main_Menu
  *  Description:  This controls the user input to the games main menu
  * =====================================================================================
  */
-class Menu {
+class Main_menu : public NCursesMenu {
     public:
         /* ====================  LIFECYCLE     ======================================= */
-        Menu();                             /* constructor */
-        ~Menu();
-
-        /* ====================  ACCESSORS     ======================================= */
+        Main_menu( int nlines, int ncols, int begin_y, int begin_x );   /* constructor */
+        ~Main_menu();
 
         /* ====================  MUTATORS      ======================================= */
-        int get_input( int input_char );
-        void show();
-        void hide();
+        //int get_input( int input_char );
         void toggle();
-
-        /* ====================  OPERATORS     ======================================= */
-
-    protected:
-        /* ====================  DATA MEMBERS  ======================================= */
 
     private:
         /* ====================  DATA MEMBERS  ======================================= */
-        WINDOW *window;
-        PANEL *panel;
-        MENU *menu;
+        //NCursesMenuItem menu_item_array[5];
+        NCursesPanel *panel;
+        NCursesMenuItem **menu_item_array;
+
+        static bool resume_callback( NCursesMenuItem &item );
+        static bool save_callback( NCursesMenuItem &item );
+        static bool quit_callback( NCursesMenuItem &item );
+        static bool options_callback( NCursesMenuItem &item );
+
 }; /* -----  end of class Menu  ----- */
 
+char *options_menu_options[][2] = {
+    { "Speed", NULL },
+    { "Food Rate", NULL },
+    { "Back", NULL },
+    { NULL, NULL }
+};
+
+char *game_over_menu_options[][2] = {
+    {"Restart", "Play again" },
+    {"Quit", "Leave the game" },
+    {NULL, NULL}
+};
 
 /*
  * =====================================================================================
@@ -329,26 +222,27 @@ class Game
         /* ====================  LIFECYCLE     ======================================= */
         Game();                             /* constructor */
         ~Game();
-        void initialize();
 
-        static void finish( int sig );
-        static void resize( int sig );
+        void load_configuration( const std::string &filename );
 
-        /* ====================  ACCESSORS     ======================================= */
 
         /* ====================  MUTATORS      ======================================= */
-
-        /* ====================  OPERATORS     ======================================= */
-
-    protected:
-        /* ====================  DATA MEMBERS  ======================================= */
+        static void finish( int sig );
+        static void resize( int sig );
 
     private:
         /* ====================  DATA MEMBERS  ======================================= */
         void run();
+        void initialize();
+
         Snake *snake;
         Controls *controls;
-        Menu *menu;
+        //NCursesMenu *main_menu;
+        Main_menu *main_menu;
 
+        enum game_mode {
+            state_play,
+            state_menu
+        };
 }; /* -----  end of class Game  ----- */
 

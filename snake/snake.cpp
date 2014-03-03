@@ -17,6 +17,8 @@
  */
 #include <stdlib.h>
 #include <string.h>
+#include <boost/property_tree/ptree.hpp>
+#include <boost/property_tree/xml_parser.hpp>
 #include "snake.h"
 
 /*
@@ -26,26 +28,23 @@
  * Description:  constructor
  *--------------------------------------------------------------------------------------
  */
-Snake::Snake( ) {
 
+Snake::Snake( int nlines, int ncols, int begin_y, int begin_x ) :
+    NCursesPanel( nlines, ncols, begin_y, begin_x ) {
     // initialize the snake
     last_dir = dir = dir_down;
-    neck_x = tail_x = head_x = 7;
-    neck_y = tail_y = head_y = 7;
+    neck_x = tail_x = head_x = ncols/2;
+    neck_y = tail_y = head_y = nlines/2;
 
     length = 1;
     max_length = 3;
 
     // initialize window attributes
-    window_x = 5;
-    window_y = 5;
-    set_size( settings.board_size.x, settings.board_size.y );
+    set_size( ncols, nlines );
     
-    window = newwin( window_width, window_height, window_x, window_y );
-    panel = new_panel( window );
-    //wborder( window, 0, 0, 0, 0, 0, 0, 0, 0 );
-    box( window, 0, 0 );
-    //wrefresh( window );
+    box( 0, 0 );
+    refresh( );
+    halfdelay( 2 );
     
     // initialize the board
     board = new int*[max_x];
@@ -61,7 +60,8 @@ Snake::Snake( ) {
 
     srand( settings.seed );
 
-    for( int i = 0; i < settings.num_food; ++i ) {
+    int num_food = nlines * ncols * settings.food_rarity;
+    for( int i = 0; i < num_food; ++i ) {
         drop_food();
     }
 
@@ -77,11 +77,9 @@ void Snake::set_size( int width, int height ) {
         //THROW AN ERROR
         height = 3;
     }
-    window_width = width;
-    window_height = height;
 
-    max_x = window_width - 2;
-    max_y = window_height - 2;
+    max_x = width - 2;
+    max_y = height - 2;
     return;
 }		/* -----  end of method Snake::set_size  ----- */
 
@@ -131,9 +129,9 @@ void Snake::drop_food( int x, int y ) {
     if( x <= 0 || y <= 0 || x > max_x || y > max_y ) {
         return;
     }
-    wattrset( window, COLOR_PAIR(settings.color.food) );
+    attrset( COLOR_PAIR(settings.food[0].color) );
     board[x][y] = dir_food;
-    mvwaddch( window, y, x, settings.food_mark );
+    addch( y, x, settings.food[0].mark );
 }
 
 int Snake::tick() {
@@ -162,7 +160,7 @@ int Snake::tick() {
     board[head_x][head_y] = dir;
 
     // change to snake body color
-    wattrset( window, COLOR_PAIR(settings.color.snake) );
+    attrset( COLOR_PAIR(settings.snake.color) );
 
     // draw the head
     switch( dir ) {
@@ -172,7 +170,7 @@ int Snake::tick() {
         } else {
             --head_y;
         }
-        mvwaddch( window, head_y, head_x, settings.snake_head_mark.up );
+        addch( head_y, head_x, settings.snake.head_mark.up );
         break;
     case dir_down:
         if( head_y >= max_y ) {
@@ -180,7 +178,7 @@ int Snake::tick() {
         } else {
             ++head_y;
         }
-        mvwaddch( window, head_y, head_x, settings.snake_head_mark.down );
+        addch( head_y, head_x, settings.snake.head_mark.down );
         break;
     case dir_left:
         if( head_x <= 1 ) {
@@ -188,7 +186,7 @@ int Snake::tick() {
         } else {
             --head_x;
         }
-        mvwaddch( window, head_y, head_x, settings.snake_head_mark.left );
+        addch( head_y, head_x, settings.snake.head_mark.left );
         break;
     case dir_right:
         if( head_x >= max_x ) {
@@ -196,7 +194,7 @@ int Snake::tick() {
         } else {
             ++head_x;
         }
-        mvwaddch( window, head_y, head_x, settings.snake_head_mark.right );
+        addch( head_y, head_x, settings.snake.head_mark.right );
         break;
     }
 
@@ -206,13 +204,13 @@ int Snake::tick() {
     case dir_up:
         switch( last_dir ) {
         case dir_left:
-            mvwaddch( window, neck_y, neck_x, settings.snake_body_mark.ll );
+            addch( neck_y, neck_x, settings.snake.body_mark.ll );
             break;
         case dir_right:
-            mvwaddch( window, neck_y, neck_x, settings.snake_body_mark.lr );
+            addch( neck_y, neck_x, settings.snake.body_mark.lr );
             break;
         default:
-            mvwaddch( window, neck_y, neck_x, settings.snake_body_mark.up );
+            addch( neck_y, neck_x, settings.snake.body_mark.up );
         }
         if( neck_y <= 1 ) {
             neck_y = max_y;
@@ -223,13 +221,13 @@ int Snake::tick() {
     case dir_down:
         switch( last_dir ) {
         case dir_left:
-            mvwaddch( window, neck_y, neck_x, settings.snake_body_mark.ul );
+            addch( neck_y, neck_x, settings.snake.body_mark.ul );
             break;
         case dir_right:
-            mvwaddch( window, neck_y, neck_x, settings.snake_body_mark.ur );
+            addch( neck_y, neck_x, settings.snake.body_mark.ur );
             break;
         default:
-            mvwaddch( window, neck_y, neck_x, settings.snake_body_mark.down );
+            addch( neck_y, neck_x, settings.snake.body_mark.down );
         }
         if( neck_y >= max_y ) {
             neck_y = 1;
@@ -240,13 +238,13 @@ int Snake::tick() {
     case dir_left:
         switch( last_dir ) {
         case dir_up:
-            mvwaddch( window, neck_y, neck_x, settings.snake_body_mark.ur );
+            addch( neck_y, neck_x, settings.snake.body_mark.ur );
             break;
         case dir_down:
-            mvwaddch( window, neck_y, neck_x, settings.snake_body_mark.lr );
+            addch( neck_y, neck_x, settings.snake.body_mark.lr );
             break;
         default:
-            mvwaddch( window, neck_y, neck_x, settings.snake_body_mark.left );
+            addch( neck_y, neck_x, settings.snake.body_mark.left );
         }
         if( neck_x <= 1 ) {
             neck_x = max_x;
@@ -257,13 +255,13 @@ int Snake::tick() {
     case dir_right:
         switch( last_dir ) {
         case dir_up:
-            mvwaddch( window, neck_y, neck_x, settings.snake_body_mark.ul );
+            addch( neck_y, neck_x, settings.snake.body_mark.ul );
             break;
         case dir_down:
-            mvwaddch( window, neck_y, neck_x, settings.snake_body_mark.ll );
+            addch( neck_y, neck_x, settings.snake.body_mark.ll );
             break;
         default:
-            mvwaddch( window, neck_y, neck_x, settings.snake_body_mark.right );
+            addch( neck_y, neck_x, settings.snake.body_mark.right );
         }
         if( neck_x >= max_x ) {
             neck_x = 1;
@@ -278,7 +276,7 @@ int Snake::tick() {
     while( length > max_length ) {
         switch( board[tail_x][tail_y] ) {
         case dir_up:
-            mvwaddch( window, tail_y, tail_x, ' ' );
+            addch( tail_y, tail_x, ' ' );
             board[tail_x][tail_y] = -1;
             if( tail_y <= 1 ) {
                 tail_y = max_y;
@@ -287,7 +285,7 @@ int Snake::tick() {
             }
             break;
         case dir_down:
-            mvwaddch( window, tail_y, tail_x, ' ' );
+            addch( tail_y, tail_x, ' ' );
             board[tail_x][tail_y] = -1;
             if( tail_y >= max_y ) {
                 tail_y = 1;
@@ -296,7 +294,7 @@ int Snake::tick() {
             }
             break;
         case dir_left:
-            mvwaddch( window, tail_y, tail_x, ' ' );
+            addch( tail_y, tail_x, ' ' );
             board[tail_x][tail_y] = -1;
             if( tail_x <= 1 ) {
                 tail_x = max_x;
@@ -305,7 +303,7 @@ int Snake::tick() {
             }
             break;
         case dir_right:
-            mvwaddch( window, tail_y, tail_x, ' ' );
+            addch( tail_y, tail_x, ' ' );
             board[tail_x][tail_y] = -1;
             if( tail_x >= max_x ) {
                 tail_x = 1;
@@ -316,7 +314,7 @@ int Snake::tick() {
         }
         --length;
     }
-    wrefresh( window );
+    refresh();
     return DEFAULT;
 }		/* -----  end of method Snake::tick  ----- */
 
@@ -384,103 +382,60 @@ void Controls::right() {
 
 /*
  *--------------------------------------------------------------------------------------
- *       Class:  Menu
- *      Method:  Menu
+ *       Class:  Main_menu
+ *      Method:  Main_menu
  * Description:  constructor
  *--------------------------------------------------------------------------------------
  */
-Menu::Menu() {
-    int num_items;
-    // count items
-    for( num_items = 0; main_menu_options[num_items][0]; ++num_items );
-    // create items
-    ITEM **items = (ITEM**) calloc( num_items, sizeof( ITEM* ) );
-    for( int i = 0; i < num_items; ++i ) {
-        items[i] = new_item( main_menu_options[i][0], main_menu_options[i][1] );
-    }
-    // create menu
-    menu = new_menu( items );
-    // create window
-    window = newwin( 8, 50, 4, 4 );
-    box( window, 0, 0 );
-    set_menu_win( menu, window );
-    set_menu_sub( menu, derwin( window, 6,48, 2,1 ) );
-    set_menu_mark( menu, " * " );
-    post_menu( menu );
 
-    // create panel
-    panel = new_panel( window );
-    hide_panel( panel );
+Main_menu::Main_menu( int nlines, int ncols, int begin_y, int begin_x ) : 
+    NCursesMenu( nlines, ncols, begin_y, begin_x ),
+    panel(0),
+
+    menu_item_array(0) {
+    menu_item_array = new NCursesMenuItem*[5];
+
+    menu_item_array[0] = new NCursesMenuCallbackItem( resume_callback,  "Resume",   "Continue playing the game" );
+    menu_item_array[1] = new NCursesMenuCallbackItem( options_callback, "Options",  "Edit the game options" );
+    menu_item_array[2] = new NCursesMenuCallbackItem( save_callback,    "Save",     "Save this game for future play" );
+    menu_item_array[3] = new NCursesMenuCallbackItem( quit_callback,    "Quit",     "Leave the game" );
+    menu_item_array[4] = new NCursesMenuItem( );
+
+
+    InitMenu( menu_item_array, TRUE, FALSE );
+
+
+    //panel = new NCursesPanel( 1, 5, 10, 1 );
+    //panel->show();
+    
+    //setItems( menu_item_array );
+
 }  /* -----  end of method Menu::Menu  (constructor)  ----- */
 
-Menu::~Menu() {
-    unpost_menu( menu );
-    free_menu( menu );
+Main_menu::~Main_menu() {
+
 }
 
-int Menu::get_input( int input_char ) {
+bool Main_menu::resume_callback( NCursesMenuItem &item ) {
+    
+}
 
-    switch ( input_char ) {
-        case KEY_BACKSPACE:
-        case KEY_ENTER:
-            return TOGGLE_MAIN_MENU;
-            break;
-        case KEY_DOWN:	
-            menu_driver( menu, REQ_DOWN_ITEM );
-            break;
-        case KEY_UP:	
-            menu_driver( menu, REQ_UP_ITEM );
-            break;
-        case KEY_LEFT:
-            {
-                ITEM *current;
-                current = current_item( menu );
-                const char *name = item_name( current );
-                int i;
-                for( i = 0; main_menu_options[i][0] != NULL; ++i ) {
-                    if( strcmp( name, main_menu_options[i][0] ) == 0 ) {
-                        break;
-                    }
-                }
-                pos_menu_cursor( menu );
-                if( main_menu_options[i][0] == NULL ) {
-                    printf("null");
-                    break;
-                }
-                switch( i ) {
-                    case 0: //Resume
-                        return TOGGLE_MAIN_MENU;
-                    case 1: //Options
-                        return TOGGLE_MAIN_MENU; // open options menu
-                    case 2: //Save
-                        return 0; // save the results
-                    case 3: //Quit
-                        return EXIT;
-                        break;
-                    default:
-                        break;
-                }
-            }
-        default:	
-            break;
-    }				/* -----  end switch  ----- */
-    return 0;
-}		/* -----  end of method Menu::get_input  ----- */
+bool Main_menu::save_callback( NCursesMenuItem &item ) {
+
+}
+
+bool Main_menu::quit_callback( NCursesMenuItem &item ) {
+
+}
+
+bool Main_menu::options_callback( NCursesMenuItem &item ) {
+
+}
 
 
-void Menu::show( ) {
-    show_panel( panel );
-    return;
-}		/* -----  end of method Menu::show  ----- */
 
-void Menu::hide( ) {
-    hide_panel( panel );
-    return;
-}		/* -----  end of method Menu::hide  ----- */
-
-
-void Menu::toggle( ) {
-    if( panel_hidden( panel ) ) {
+void Main_menu::toggle( ) {
+    if( hidden( ) ) {
         show();
     } else {
         hide();
@@ -504,7 +459,7 @@ Game::Game() {
 Game::~Game() {
     delete( snake );
     delete( controls );
-    delete( menu );
+    delete( main_menu );
 }
 
 void Game::initialize () {
@@ -532,90 +487,59 @@ void Game::initialize () {
         init_pair( 5, COLOR_WHITE, COLOR_BLACK );
     }
 
-    // load default settings
+
+    load_configuration("config.xml");
     
-    Settings default_settings;
+    main_menu     = new Main_menu(  8, 50, 4, 4 );
+    snake         = new Snake( settings.board_size.y, settings.board_size.x, 5, 5 );
+    controls      = new Controls( snake );
 
-    default_settings.color.food             = 4;
-    default_settings.color.snake            = 1;
-    default_settings.color.super_food       = 3;
-
-    default_settings.food_mark              = ACS_DIAMOND;
-    default_settings.num_food               = 20;
-    default_settings.seed                   = 1;
-
-    default_settings.snake_body_mark.ur     = ACS_URCORNER;
-    default_settings.snake_body_mark.lr     = ACS_LRCORNER;
-    default_settings.snake_body_mark.ul     = ACS_ULCORNER;
-    default_settings.snake_body_mark.ll     = ACS_LLCORNER;
-    default_settings.snake_body_mark.up     = ACS_VLINE;
-    default_settings.snake_body_mark.down   = ACS_VLINE;
-    default_settings.snake_body_mark.left   = ACS_HLINE;
-    default_settings.snake_body_mark.right  = ACS_HLINE;
-
-    default_settings.snake_head_mark.up     = ACS_UARROW;
-    default_settings.snake_head_mark.down   = ACS_DARROW;
-    default_settings.snake_head_mark.left   = ACS_LARROW;
-    default_settings.snake_head_mark.right  = ACS_RARROW;
-
-    default_settings.commands.up            = KEY_UP;
-    default_settings.commands.down          = KEY_DOWN;
-    default_settings.commands.left          = KEY_LEFT;
-    default_settings.commands.right         = KEY_RIGHT;
-    default_settings.commands.toggle_menu   = KEY_BACKSPACE;
-
-    default_settings.board_size.x           = 50;
-    default_settings.board_size.y           = 50;
-
-    // set the correct settings for everything
-    settings.color.food                     = default_settings.color.food;
-    settings.color.snake                    = default_settings.color.snake;
-    settings.color.super_food               = default_settings.color.super_food;
-
-    settings.food_mark                      = default_settings.food_mark;
-    settings.num_food                       = default_settings.num_food;
-    settings.seed                           = default_settings.seed;
-
-    // the characters that make up the body
-    settings.snake_body_mark.ur             = default_settings.snake_body_mark.ur;
-    settings.snake_body_mark.lr             = default_settings.snake_body_mark.lr;
-    settings.snake_body_mark.ul             = default_settings.snake_body_mark.ul;
-    settings.snake_body_mark.ll             = default_settings.snake_body_mark.ll;
-    settings.snake_body_mark.up             = default_settings.snake_body_mark.up;
-    settings.snake_body_mark.down           = default_settings.snake_body_mark.down;
-    settings.snake_body_mark.left           = default_settings.snake_body_mark.left;
-    settings.snake_body_mark.right          = default_settings.snake_body_mark.right;
-
-    settings.snake_head_mark.up             = default_settings.snake_head_mark.up;
-    settings.snake_head_mark.down           = default_settings.snake_head_mark.down;
-    settings.snake_head_mark.left           = default_settings.snake_head_mark.left;
-    settings.snake_head_mark.right          = default_settings.snake_head_mark.right;
-
-    // key commands
-    settings.commands.up                    = default_settings.commands.up;
-    settings.commands.down                  = default_settings.commands.down;
-    settings.commands.left                  = default_settings.commands.left;
-    settings.commands.right                 = default_settings.commands.right;
-    settings.commands.toggle_menu           = default_settings.commands.toggle_menu;
-
-    settings.board_size.x                   = default_settings.board_size.x;
-    settings.board_size.y                   = default_settings.board_size.y;
-
-    snake    = new Snake();
-    controls = new Controls( snake );
-    menu     = new Menu();
+    main_menu->top();
+    
     
 
     return ;
 }		/* -----  end of method Game::initialize  ----- */
 
-enum game_mode {
-    state_play,
-    state_menu
-};
+void Game::load_configuration( const std::string &filename ) {
 
+    using boost::property_tree::ptree;
+    ptree configuration;
+    //read_xml( filename, configuration );
+    settings.seed                   = configuration.get("settings.seed", 1 );
 
+    settings.food[0].color          = configuration.get("settings.food.color", 4 );
+    settings.food[0].mark           = configuration.get("settings.food.mark", ACS_DIAMOND );
+    settings.food[0].points         = configuration.get("settings.food.points", 1 );
+    settings.food[0].ratio          = configuration.get("settings.food.ratio", 5 );
 
+    settings.food_rarity            = configuration.get("settings.food_rarity", .1 );
+
+    settings.snake.color            = configuration.get("settings.snake.color", 1 );
+
+    settings.snake.body_mark.ur     = configuration.get("settings.snake.body_mark.ur", ACS_URCORNER );
+    settings.snake.body_mark.lr     = configuration.get("settings.snake.body_mark.lr", ACS_LRCORNER );
+    settings.snake.body_mark.ul     = configuration.get("settings.snake.body_mark.ul", ACS_ULCORNER );
+    settings.snake.body_mark.ll     = configuration.get("settings.snake.body_mark.ll", ACS_LLCORNER );
+    settings.snake.body_mark.up     = configuration.get("settings.snake.body_mark.up", ACS_VLINE );
+    settings.snake.body_mark.down   = configuration.get("settings.snake.body_mark.down", ACS_VLINE );
+    settings.snake.body_mark.left   = configuration.get("settings.snake.body_mark.left", ACS_HLINE );
+    settings.snake.body_mark.right  = configuration.get("settings.snake.body_mark.right", ACS_HLINE );
+
+    settings.snake.head_mark.up     = configuration.get("settings.snake.head_mark.up", ACS_UARROW );
+    settings.snake.head_mark.down   = configuration.get("settings.snake.head_mark.down", ACS_DARROW );
+    settings.snake.head_mark.left   = configuration.get("settings.snake.head_mark.left", ACS_LARROW );
+    settings.snake.head_mark.right  = configuration.get("settings.snake.head_mark.right", ACS_RARROW );
+
+    settings.commands.up            = configuration.get("settings.commands.up", KEY_UP );
+    settings.commands.down          = configuration.get("settings.commands.down", KEY_DOWN );
+    settings.commands.left          = configuration.get("settings.commands.left", KEY_LEFT );
+    settings.commands.right         = configuration.get("settings.commands.right", KEY_RIGHT );
+    settings.commands.toggle_menu   = configuration.get("settings.commands.toggle_menu", KEY_BACKSPACE );
+
+    settings.board_size.x           = configuration.get("settings.board_size.x", 100 );
+    settings.board_size.y           = configuration.get("settings.board_size.y", 30 );
+}
 
 void Game::run() {
 
@@ -629,7 +553,7 @@ void Game::run() {
             snake->tick();
             break;
         case state_menu:
-            results = menu->get_input( input_char );
+            main_menu->virtualize( input_char );
             break;
         default:
             break;
@@ -637,12 +561,14 @@ void Game::run() {
 
         switch( results ) {
             case TOGGLE_MAIN_MENU:
-                menu->toggle();
                 if( current_mode == state_play ) {
+                    main_menu->post();
                     current_mode = state_menu;
                 } else {
+                    main_menu->unpost();
                     current_mode = state_play;
                 }
+                results = 0;
                 break;
             case EXIT:
                 return;
@@ -677,6 +603,7 @@ void Game::resize( int sig ) {
 }		/* -----  end of method Game::resize  ----- */
 
 
+Game *game = new Game();
 
 /* 
  * ===  FUNCTION  ======================================================================
@@ -686,7 +613,6 @@ void Game::resize( int sig ) {
  */
 int main ( int argc, char *argv[] ) {
 
-    Game *game = new Game();
 
     return EXIT_SUCCESS;
 }				/* ----------  end of function main  ---------- */
